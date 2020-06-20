@@ -3,13 +3,21 @@ if(!require(coreNLP)) install.packages('coreNLP', repos = "http://cran.us.r-proj
 library("coreNLP")
 options(java.parameters = "-Xmx6g")
 
-# Initialize Global Variables
+# Initialize Global Variables -- EDIT DURING SET UP
+
+# name of properties file
 parameterFileName <<- "corenlp.properties"
+# file path to your edition of corenlp
 libLoc <<- "C:\\Users\\bclew\\OneDrive\\Documents\\POS Research\\stanford-corenlp-full-2018-10-05"
+# memory used
 coreNLPMem <<- "4g"
+# language used in parser
 language <<- "english"
+# path to your function word file
 functionWordFile <<- "C:\\Users\\bclew\\OneDrive\\Documents\\POS Research\\functionwords.csv"
 
+
+# get function word data for every instance where a part of speech corresponds with a function word in the associated list
 getFunctionWords <- function(pennTok) {
   
   functionWords <- vector()
@@ -31,7 +39,7 @@ getFunctionWords <- function(pennTok) {
   
 } 
 
-
+# get phrase data based on parse tree
 getPhraseData <- function(characterParseTrees) {
   
   phraseVector <- vector()
@@ -96,27 +104,37 @@ getPhraseData <- function(characterParseTrees) {
   
 }
 
-batch_generate_csv <- function(fileListPath, outputFilePath, parseTreeOutputFilePath) {
+# turn a batch of seperate texts into csv file (+ and optionally parse tree text files) at once
+batchGenerateCSV <- function(fileListPath, outputFilePath, parseTreeOutputFilePath) {
+ 
+  # load in corenlp
   initCoreNLP(libLoc, type = c(language), parameterFile = parameterFileName, mem = coreNLPMem) 
+  
+  # for each line in initial file, process the text from the listed filepath
   conn = file(fileListPath, "r")
   while ( TRUE ) {
     line = readLines(conn, n = 1)
     if ( length(line) == 0 ) {
       break
     }     
+
+    # get csv and parse tree data based on a file path
     dataList = processCSVData(line) 
-    
     csvData <- as.data.frame(dataList[['uniTok']])
     parseTreeData <- dataList[['parseTree']]
     
+    # create csv output file--will text initial filename.txt and create filename.csv
     csvOutputFile = paste(outputFilePath, tools::file_path_sans_ext(basename(line)), '.csv', sep = "")
     file.create(csvOutputFile)
     csvConn <- file(csvOutputFile)
     
+    # write to file
     if(is.null(parseTreeOutputFilePath)) {
       write.csv(csvData, file=csvConn)
     }  else {
-      parseTreeOutputFile = paste(parseTreeOutputFilePath, tools::file_path_sans_ext(basename(line)), '.txt', sep = "")
+
+      # create parse tree output file--will create filename.txt and turn it into filename_parse.txt
+      parseTreeOutputFile = paste(parseTreeOutputFilePath, tools::file_path_sans_ext(basename(line)), '_parse.txt', sep = "")
       file.create(parseTreeOutputFile)
       write.csv(csvData, file=csvConn) 
       write(parseTreeData,file=parseTreeOutputFile)
@@ -129,11 +147,15 @@ batch_generate_csv <- function(fileListPath, outputFilePath, parseTreeOutputFile
 
 }
 
-multi_generate_csv <- function(fileListPath, outputFile, parseTreeOutputFile) {
+# combine and process individual file pieces (e.g. chapters) into one output file
+# useful when file is too large to process at one time
+multiGenerateCSV <- function(fileListPath, outputFile, parseTreeOutputFile) {
   
+  # load corenlp
   initCoreNLP(libLoc, type = c(language), parameterFile = parameterFileName, mem = coreNLPMem) 
-  conn = file(fileListPath, "r")
   
+  conn = file(fileListPath, "r")
+  # set up output files
   file.create(outputFile)
   if(!is.null(parseTreeOutputFile)) {
     file.create(parseTreeOutputFile)
@@ -143,32 +165,35 @@ multi_generate_csv <- function(fileListPath, outputFile, parseTreeOutputFile) {
   sentence = 0
   characterEnd = 0
   i = 0
+  # go through each line in the initial file, and find the file listed on that line
   while ( TRUE ) {
     line = readLines(conn, n = 1)
     if ( length(line) == 0 ) {
       break
     }
     
+    # get the csv and phrase data based on the initial text
     dataList = processCSVData(line) 
-    
     csvData <- as.data.frame(dataList[['uniTok']])
     parseTreeData <- dataList[['parseTree']]
 
+    # get the last id, sentence id, and character number
     newid = nrow(csvData)
     newSentence = csvData[(nrow(csvData):nrow(csvData)), (1:1)]
     newCharacterEnd = csvData[(nrow(csvData):nrow(csvData)), (6:6)]
     
-
+    # edit the data that will be appended so that it starts where the previous data ends off
     rownames(csvData) <- (1 + id):(nrow(csvData) + id)
-    
     csvData[(1:nrow(csvData)), (1:1)] <- csvData[(1:nrow(csvData)), (1:1)] + sentence
     csvData[(0:nrow(csvData)), (5:5)] <- csvData[(0:nrow(csvData)), (5:5)] + characterEnd
     csvData[(0:nrow(csvData)), (6:6)] <- csvData[(0:nrow(csvData)), (6:6)] + characterEnd
     
+    # increment
     id = id + newid
     sentence = sentence + newSentence
     characterEnd = characterEnd + newCharacterEnd + 4
     
+    # write to file
     if(is.null(parseTreeOutputFile)) {
 
       if (i == 0){
@@ -187,8 +212,7 @@ multi_generate_csv <- function(fileListPath, outputFile, parseTreeOutputFile) {
                      sep=',', 
                      row.names=T, 
                      col.names=F )
-      }
-      
+      }    
     
     }  else {
       if (i == 0){
@@ -211,6 +235,7 @@ multi_generate_csv <- function(fileListPath, outputFile, parseTreeOutputFile) {
       write(parseTreeData,file=parseTreeOutputFile,append=TRUE)
       
     }
+    # move to next line
     i = i + 1
     
   }
@@ -219,18 +244,21 @@ multi_generate_csv <- function(fileListPath, outputFile, parseTreeOutputFile) {
 }
 
 
-# process file (returns vector)
+# process a single file and generate csv data file (and possibly a parse tree txt file)
 
-single_generate_csv <- function(file_path, csvOutputFile, parseTreeOutputFile) {
+singleGenerateCSV <- function(filePath, csvOutputFile, parseTreeOutputFile) {
   # load up corenlp
   initCoreNLP(libLoc, type = c(language), parameterFile = parameterFileName, mem = coreNLPMem) 
+  # set up output file
   file.create(csvOutputFile)
   csvConn <- file(csvOutputFile)
-  dataList = processCSVData(file_path) 
-  
+
+  # get csv + parse tree data in a list
+  dataList = processCSVData(filePath) 
   csvData <- as.data.frame(dataList[['uniTok']])
   parseTreeData <- dataList[['parseTree']]
   
+  # write data to file
   if(is.null(parseTreeOutputFile)) {
     write.csv(csvData, file=csvConn)
   }  else {
@@ -243,10 +271,8 @@ single_generate_csv <- function(file_path, csvOutputFile, parseTreeOutputFile) {
 }
 
 
-
+# get the csv and phrase data based on the initial text
 processCSVData <- function(filePath) {
-  
-  # all of the stuff I normally do
   
   result <- annotateFile(filePath, format = "obj")
   
@@ -254,29 +280,28 @@ processCSVData <- function(filePath) {
   uniTok <- getToken(result)
   parseTree <- getParse(result)
   
+  # get function words and phrase data
   characterParseTrees <- strsplit(parseTree, '')
   functionWords = getFunctionWords(pennTok)
   phrases = getPhraseData(characterParseTrees)
   
-  # Add Universal Tags
-  
+  # add universal tags
   uniTok <- cbind2(uniTok, universalTagset(uniTok$POS))
   colnames(uniTok)[10] <- "Universal Tags"
   
-  # Add Phrase Information
+  # add phrase information
   uniTok <- cbind2(uniTok, phrases)
   uniTok <- cbind2(uniTok, functionWords)
   
-  #uniTok <- cbind2(uniTok, wordCountVector)
-  
+  # add column names
   colnames(uniTok)[11] <- "Phrases"
   colnames(uniTok)[12] <- "Function Words"
   colnames(uniTok)[1] <- "Word ID"
   
-  
+  # remove unneccesary columns
   uniTok<- uniTok[, -(8:9)]
   
-
+  # package both csv file data and phrase data as a list
   dataList <- list()
   dataList['uniTok']<-list(uniTok)
   dataList['parseTree']<- toString(parseTree)
@@ -285,6 +310,7 @@ processCSVData <- function(filePath) {
 }
 
 
+# Run the script from the command line, taking arguments indicating what type of processing is neccessary
 main <- function() {
   
   args <- commandArgs(trailingOnly = TRUE)
@@ -303,11 +329,11 @@ main <- function() {
     }
     
     if (processingType == "multi") {
-      multi_generate_csv(inputFilePath, outputFilePath, parseTreeFilePath)
+      multiGenerateCSV(inputFilePath, outputFilePath, parseTreeFilePath)
     } else if (processingType == "single") {
-      single_generate_csv(inputFilePath, outputFilePath, parseTreeFilePath)
+      singleGenerateCSV(inputFilePath, outputFilePath, parseTreeFilePath)
     } else if (processingType == "batch") {
-      batch_generate_csv(inputFilePath, outputFilePath, parseTreeFilePath)
+      batchGenerateCSV(inputFilePath, outputFilePath, parseTreeFilePath)
     } else {
     stop("Please specify whether you are using 'multi', 'single' or 'batch' processing as your first command line arguments", call.=FALSE)
     }
