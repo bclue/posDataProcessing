@@ -27,12 +27,13 @@ getFunctionWords <- function(pennTok) {
     for(word in words){
       lowerWord <- sapply(word, tolower) 
       if(lowerWord %in% functionWordList[[1]]){
-        
         functionWords <- c(functionWords, word)
       } else {
         functionWords <- c(functionWords, "-")
       }
+
     }
+
   }
   
   return(functionWords)   
@@ -54,34 +55,30 @@ getPhraseData <- function(characterParseTrees) {
       if (!(value %in% c("(", ")", " ", "\r", "\n"))){
         word = paste(word, value, sep = "")
         phrase = paste(phrase, value, sep = "")
-        
       }
+
       else if (value == ")"){
         depth = depth - 1
         
         if (word != "") {
-          
           word = ""
           phrase = ""
           
           if (firstInstance == TRUE) {
-            
             phraseVector <- c(phraseVector, currentPhrase)
             firstInstance = FALSE
             
           }
           else {
-            
             phraseVector <- c(phraseVector, "-")
-            
           }
           
         }
+
       }
       else if ((value == " " | value == "\r") & phrase != ""){
         
         if (depth == 3){
-          
           
           currentPhrase = phrase
           firstInstance = TRUE
@@ -94,14 +91,17 @@ getPhraseData <- function(characterParseTrees) {
       else if (value == "(") {
         depth = depth + 1
       }
+
       else {
         word = ""
         phrase = ""
       }
+
     }
+
   }
+
   return(phraseVector)
-  
 }
 
 # turn a batch of seperate texts into csv file (+ and optionally parse tree text files) at once
@@ -113,6 +113,7 @@ batchGenerateCSV <- function(fileListPath, outputFilePath, parseTreeOutputFilePa
   # for each line in initial file, process the text from the listed filepath
   conn = file(fileListPath, "r")
   while ( TRUE ) {
+
     line = readLines(conn, n = 1)
     if ( length(line) == 0 ) {
       break
@@ -132,18 +133,16 @@ batchGenerateCSV <- function(fileListPath, outputFilePath, parseTreeOutputFilePa
     if(is.null(parseTreeOutputFilePath)) {
       write.csv(csvData, file=csvConn)
     }  else {
-      
       # create parse tree output file--will create filename.txt and turn it into filename_parse.txt
       parseTreeOutputFile = paste(parseTreeOutputFilePath, tools::file_path_sans_ext(basename(line)), '_parse.txt', sep = "")
       file.create(parseTreeOutputFile)
       write.csv(csvData, file=csvConn) 
       write(parseTreeData,file=parseTreeOutputFile)
-      
     }
-    
+
   }
+
   close(conn)
-  
   
 }
 
@@ -180,13 +179,13 @@ multiGenerateCSV <- function(fileListPath, outputFile, parseTreeOutputFile) {
     # get the last id, sentence id, and character number
     newid = nrow(csvData)
     newSentence = csvData[(nrow(csvData):nrow(csvData)), (1:1)]
-    newCharacterEnd = csvData[(nrow(csvData):nrow(csvData)), (6:6)]
+    newCharacterEnd = csvData[(nrow(csvData):nrow(csvData)), (5:5)]
     
     # edit the data that will be appended so that it starts where the previous data ends off
     rownames(csvData) <- (1 + id):(nrow(csvData) + id)
     csvData[(1:nrow(csvData)), (1:1)] <- csvData[(1:nrow(csvData)), (1:1)] + sentence
-    csvData[(0:nrow(csvData)), (5:5)] <- csvData[(0:nrow(csvData)), (5:5)] + characterEnd
-    csvData[(0:nrow(csvData)), (6:6)] <- csvData[(0:nrow(csvData)), (6:6)] + characterEnd
+    csvData[(0:nrow(csvData)), (5:5)] <- csvData[(0:nrow(csvData)), (4:4)] + characterEnd
+    csvData[(0:nrow(csvData)), (6:6)] <- csvData[(0:nrow(csvData)), (5:5)] + characterEnd
     
     # increment
     id = id + newid
@@ -197,48 +196,25 @@ multiGenerateCSV <- function(fileListPath, outputFile, parseTreeOutputFile) {
     if(is.null(parseTreeOutputFile)) {
       
       if (i == 0){
-        
-        write.table( csvData,  
-                     file=outputFile, 
-                     append = T, 
-                     sep=',', 
-                     row.names=T, 
-                     col.names=T )
+        write.table( csvData,  file=outputFile, append = T, sep=',', row.names=T, col.names=T )
       } else {
-        
-        write.table( csvData,  
-                     file=outputFile, 
-                     append = T, 
-                     sep=',', 
-                     row.names=T, 
-                     col.names=F )
+        write.table( csvData,  file=outputFile, append = T, sep=',', row.names=T, col.names=F )
       }    
       
     }  else {
       if (i == 0){
-        
-        write.table( csvData,
-                     file=outputFile, 
-                     append = T, 
-                     sep=',', 
-                     row.names=T, 
-                     col.names=T )
+        write.table( csvData, file=outputFile, append = T, sep=',', row.names=T, col.names=T )
       } else {
-        
-        write.table( csvData,  
-                     file=outputFile, 
-                     append = T, 
-                     sep=',', 
-                     row.names=T, 
-                     col.names=F )
+        write.table( csvData, file=outputFile, append = T, sep=',', row.names=T, col.names=F )
       }
-      write(parseTreeData,file=parseTreeOutputFile,append=TRUE)
-      
+
+      write(parseTreeData,file=parseTreeOutputFile,append=TRUE) 
     }
+
     # move to next line
     i = i + 1
-    
   }
+
   close(conn)
   
 }
@@ -265,9 +241,9 @@ singleGenerateCSV <- function(filePath, csvOutputFile, parseTreeOutputFile) {
     file.create(parseTreeOutputFile)
     parseConn <- file(parseTreeOutputFile)
     write.csv(csvData, file=csvConn) 
-    write(parseTreeData,file=parseTreeOutputFile)
-    
+    write(parseTreeData,file=parseTreeOutputFile)  
   }
+
 }
 
 
@@ -307,6 +283,7 @@ processCSVData <- function(filePath) {
   dataList['parseTree']<- toString(parseTree)
   
   return(dataList)
+
 }
 
 
@@ -321,7 +298,7 @@ main <- function() {
     processingType <- args[1]
     inputFilePath <- args[2]
     outputFilePath <- args[3]
-    
+
     if (length(args) == 4) {
       parseTreeFilePath <- args[4]
     } else {
@@ -337,8 +314,8 @@ main <- function() {
     } else {
       stop("Please specify whether you are using 'multi', 'single' or 'batch' processing as your first command line arguments", call.=FALSE)
     }
+
   }
-  
   
 }
 
