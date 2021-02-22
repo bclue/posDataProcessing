@@ -1,6 +1,9 @@
 if(!require(coreNLP)) install.packages('coreNLP', repos = "http://cran.us.r-project.org")
+if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
 
 library("coreNLP")
+library("stringr")
+
 options(java.parameters = "-Xmx6g")
 
 # Initialize Global Variables -- EDIT DURING SET UP
@@ -41,68 +44,40 @@ getFunctionWords <- function(pennTok) {
 } 
 
 # get phrase data based on parse tree
-getPhraseData <- function(characterParseTrees) {
+getPhraseData <- function(parseTree) {
   
-  phraseVector <- vector()
-  word = ""
-  phrase = ""
-  currentPhrase = ""
-  firstInstance = FALSE
-  depth = 0
+  sentenceTrees <- str_replace_all(parseTree, "[\r\n]" , " ")
+  parseTags <- vector()
   
-  for (tree in characterParseTrees){
-    for (value in tree){
-      if (!(value %in% c("(", ")", " ", "\r", "\n"))){
-        word = paste(word, value, sep = "")
-        phrase = paste(phrase, value, sep = "")
-      }
-
-      else if (value == ")"){
-        depth = depth - 1
-        
-        if (word != "") {
-          word = ""
-          phrase = ""
-          
-          if (firstInstance == TRUE) {
-            phraseVector <- c(phraseVector, currentPhrase)
-            firstInstance = FALSE
-            
-          }
-          else {
-            phraseVector <- c(phraseVector, "-")
-          }
-          
-        }
-
-      }
-      else if ((value == " " | value == "\r") & phrase != ""){
-        
-        if (depth == 3){
-          
-          currentPhrase = phrase
-          firstInstance = TRUE
+  for (sentence in sentenceTrees) {
+    parentheses <- vector()
+    parseTag = "-"
+    sentence <- strsplit(sentence, " ")
+    sentence <- lapply(sentence, function(x){x[!x ==""]})
+    
+    for (symbol in sentence[[1]]) {
+      # add opening parentheses when encountered
+      if (str_count(symbol, "\\(") > 0) {
+        parentheses <- append(parentheses, "(")
+        # if we are three "(" in, we are at a depth of three layers in the parse tree
+        if (length(parentheses) == 3) {
+          parseTag = substr(symbol, 2, str_length(symbol))
         }
         
-        phrase = ""
-        word = ""
+      } else if (str_count(symbol, "\\)") > 0) {
+        # the apperance of closing parenthesis indicate a word ex "TO)" or "YORK)))" 
+        parseTags <- append(parseTags, parseTag)
+        parseTag = "-"
+        # remove closing parentheses when encountered
+        parentheses <- parentheses[1:(length(parentheses)-str_count(symbol, "\\)"))] 
       }
-      
-      else if (value == "(") {
-        depth = depth + 1
-      }
-
-      else {
-        word = ""
-        phrase = ""
-      }
-
     }
-
   }
+        return(parseTags)
 
-  return(phraseVector)
 }
+ 
+
 
 # turn a batch of seperate texts into csv file (+ and optionally parse tree text files) at once
 batchGenerateCSV <- function(fileListPath, outputFilePath, parseTreeOutputFilePath) {
@@ -257,9 +232,8 @@ processCSVData <- function(filePath) {
   parseTree <- getParse(result)
   
   # get function words and phrase data
-  characterParseTrees <- strsplit(parseTree, '')
   functionWords = getFunctionWords(pennTok)
-  phrases = getPhraseData(characterParseTrees)
+  phrases = getPhraseData(parseTree)
   
   # add universal tags
   uniTok <- cbind2(uniTok, universalTagset(uniTok$POS))
@@ -320,3 +294,4 @@ main <- function() {
 }
 
 main()
+
