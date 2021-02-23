@@ -1,3 +1,6 @@
+# The Federalist Papers
+The version of the Federalist Papers we have in this repository was pulled from [The Avalon Project](https://avalon.law.yale.edu/subject_menus/fed.asp). The naming format is Federalist_NUMBER_AUTHOR.txt. The Hamilton_Madison papers were written by both Hamilton and Madison, the Unknown papers were written by Hamilton or Madison.
+
 # posDataProcessing
 This repository contains a script designed to process text files and generate csv files based on Parts-Of-Speech data. These csv files will be used for further statistical analysis in R, as part of an authorship attribution project.
 ## How to Set-Up the Script
